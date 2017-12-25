@@ -2,9 +2,11 @@ package digdag
 
 import (
 	"errors"
-	"strconv"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
+
 	"github.com/hashicorp/errwrap"
 	uuid "github.com/satori/go.uuid"
 )
@@ -73,7 +75,7 @@ func NewCreateAttempt(workflowID, sessionTime, retryAttemptName string) *CreateA
 	ca.WorkflowID = workflowID
 	ca.SessionTime = sessionTime
 	ca.RetryAttemptName = retryAttemptName
-	// TODO: set the optional params.
+	// FIXME Set the optional params
 	ca.Params = map[string]interface{}{}
 
 	return ca
@@ -84,8 +86,8 @@ func (c *Client) GetAttempts(includeRetried bool) ([]Attempt, error) {
 	spath := "/api/attempts"
 
 	params := url.Values{}
-	params.Set("project", c.ProjectName)
-	params.Set("workflow", c.WorkflowName)
+	// params.Set("project", c.ProjectName)
+	// params.Set("workflow", c.WorkflowName)
 	params.Set("include_retried", strconv.FormatBool(includeRetried))
 
 	var attempts *attempts
@@ -96,7 +98,7 @@ func (c *Client) GetAttempts(includeRetried bool) ([]Attempt, error) {
 
 	// If any attempts not found
 	if len(attempts.Attempts) == 0 {
-		err := errors.New("attempts does not exist at `" + c.WorkflowName + "` workflow")
+		// err := errors.New("attempts does not exist at `" + c.WorkflowName + "` workflow")
 		return nil, err
 	}
 
@@ -112,10 +114,11 @@ func (c *Client) GetAttemptIDs() (attemptIDs []string, err error) {
 
 	for k := range attempts {
 		sessionTime := attempts[k].SessionTime
+		fmt.Println(sessionTime)
 
-		if sessionTime == c.SessionTime {
-			attemptIDs = append(attemptIDs, attempts[k].ID)
-		}
+		// if sessionTime == c.SessionTime {
+		// 	attemptIDs = append(attemptIDs, attempts[k].ID)
+		// }
 	}
 
 	// If any sessionTime not found
@@ -162,7 +165,7 @@ func (c *Client) GetTaskResult(attemptIDs []string, taskName string) (*Task, err
 func (c *Client) CreateNewAttempt(workflowID, date string, retry bool) (attempt *CreateAttempt, done bool, err error) {
 	spath := "/api/attempts"
 
-	ca := NewCreateAttempt(workflowID, c.SessionTime, "")
+	// ca := NewCreateAttempt(workflowID, c.SessionTime, "")
 
 	// Retry workflow
 	if retry == true {
@@ -172,11 +175,13 @@ func (c *Client) CreateNewAttempt(workflowID, date string, retry bool) (attempt 
 		if err != nil {
 			return nil, done, err
 		}
-		ca.RetryAttemptName = string(textID)
+		fmt.Println(textID)
+		// ca.RetryAttemptName = string(textID)
 	}
 
 	// Create new attempt
-	err = c.doReq(http.MethodPut, spath, nil, &ca)
+	// err = c.doReq(http.MethodPut, spath, nil, &ca)
+	err = c.doReq(http.MethodPut, spath, nil, nil)
 	if err != nil {
 		// if already session exist
 		if errwrap.Contains(err, "409 Conflict") {
@@ -186,5 +191,6 @@ func (c *Client) CreateNewAttempt(workflowID, date string, retry bool) (attempt 
 		return nil, done, err
 	}
 
-	return ca, done, err
+	// return ca, done, err
+	return
 }

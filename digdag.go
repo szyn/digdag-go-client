@@ -1,115 +1,152 @@
 package digdag
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"path"
-	"regexp"
 	"runtime"
 
 	"github.com/franela/goreq"
 	"github.com/hashicorp/errwrap"
-
-	"time"
 )
 
 const (
-	version          = "0.1" //client-version
-	dailyTimeFormat  = "2006-01-02T00:00:00-07:00"
-	hourlyTimeFormat = "2006-01-02T15:00:00-07:00"
-	nowTimeFormat    = "2006-01-02T15:04:05-07:00"
+	defaultBaseURL = "http://localhost:65432"
+	version        = "0.1" // client-version
 )
 
-// Client api client for digdag
+// Client is the api client for digdag-server
 type Client struct {
-	URL *url.URL
-	http.Client
+	BaseURL       *url.URL
+	HTTPClient    *http.Client
+	UserAgent     string
+	CustomHeaders http.Header
 
 	Verbose bool
-
-	ProjectName  string
-	WorkflowName string
-	SessionTime  string
-	Date         string
 }
 
-// userAgent
-var userAgent = fmt.Sprintf("DigdagGoClient/%s (%s)", version, runtime.Version())
+// RequestOpts is the list of options to pass to the request
+type RequestOpts struct {
+	Params map[string]string
+	// Headers map[string]string
+	Body io.Reader
+}
+
+//  default UserAgent
+var defaultUserAgent = fmt.Sprintf("DigdagGoClient/%s (%s)", version, runtime.Version())
 
 // NewClient return new client for digdag
-func NewClient(urlStr, project, workflow, session string, verbose bool) (*Client, error) {
+func NewClient(urlStr string, verbose bool) (*Client, error) {
 
-	parsedURL, err := url.ParseRequestURI(urlStr)
+	if urlStr == "" {
+		urlStr = defaultBaseURL
+	}
+
+	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
-		return nil, errors.New("failed to parse url")
+		return nil, err
 	}
 
-	if len(workflow) == 0 {
-		return nil, errors.New("missing workflow")
-	}
-	if len(project) == 0 {
-		return nil, errors.New("missing project")
-	}
-	if len(session) == 0 {
-		return nil, errors.New("missing session")
-	}
+	client := &Client{
+		BaseURL:    parsedURL,
+		HTTPClient: &http.Client{},
 
-	client := new(Client)
-	client.URL = parsedURL
-	client.ProjectName = project
-	client.WorkflowName = workflow
-	client.Verbose = verbose
+		UserAgent:     defaultUserAgent,
+		CustomHeaders: http.Header{},
 
-	s := regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]$`).Match([]byte(session))
-	if s == true {
-		session += "T00:00:00"
-	}
-	l := regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-9]{2}:[0-9]{2}:[0-9]{2}$`).Match([]byte(session))
-	if l == true {
-		session += time.Now().Format("-07:00")
-	}
-	r := regexp.MustCompile(`^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-9]{2}:[0-9]{2}:[0-9]{2}(\+|-)[0-9]{2}:[0-9]{2}$`).Match([]byte(session))
-	if r == true {
-		inputSession, err := time.Parse(nowTimeFormat, session)
-		if err != nil {
-			return nil, err
-		}
-		client.SessionTime = inputSession.Format(nowTimeFormat)
-		return client, err
-	}
-
-	switch session {
-	case "daily":
-		client.SessionTime = time.Now().Format(dailyTimeFormat)
-	case "hourly":
-		client.SessionTime = time.Now().Format(hourlyTimeFormat)
-	case "now":
-		client.SessionTime = time.Now().Format(nowTimeFormat)
-	default: // default is dailyTimeFormat
-		client.SessionTime = time.Now().Format(dailyTimeFormat)
+		Verbose: verbose,
 	}
 
 	return client, err
 }
 
 //
+func (c *Client) NewRequest(method, spath string, ro *RequestOpts) (resp *http.Response, err error) {
+
+	if ro == nil {
+		ro = new(RequestOpts)
+	}
+
+	u := *c.BaseURL
+	u.Path = path.Join(c.BaseURL.Path, spath)
+
+	// Set query params
+	var params = make(url.Values)
+	for k, v := range ro.Params {
+		params.Add(k, v)
+	}
+	u.RawQuery = params.Encode()
+
+	// Create request
+	req, err := http.NewRequest(method, u.String(), ro.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("User-Agent", c.UserAgent)
+
+	// Set custom headers
+	for header, values := range c.CustomHeaders {
+		for _, v := range values {
+			req.Header.Set(header, v)
+		}
+	}
+
+	client := c.HTTPClient
+	resp, err = client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.Verbose {
+		dump, err := httputil.DumpResponse(resp, true)
+		if err == nil {
+			log.Printf("%s", dump)
+		}
+	}
+
+	if resp.StatusCode >= 400 {
+		return resp, fmt.Errorf("Failed to request: %s", resp.Status)
+	}
+
+	return resp, nil
+}
+
+func decodeBody(resp *http.Response, out interface{}) error {
+	defer resp.Body.Close()
+	decoder := json.NewDecoder(resp.Body)
+	return decoder.Decode(out)
+}
+
 func (c *Client) doReq(method, spath string, params, res interface{}) error {
-	u := *c.URL
-	u.Path = path.Join(c.URL.Path, spath)
+	u := *c.BaseURL
+	u.Path = path.Join(c.BaseURL.Path, spath)
 
 	req := goreq.Request{
 		Method:      method,
 		Uri:         u.String(),
 		QueryString: params,
 		ContentType: "application/json",
-		UserAgent:   userAgent,
-		// ShowDebug:   true,
+		UserAgent:   defaultUserAgent,
 	}
+
+	if c.Verbose {
+		req.ShowDebug = true
+	}
+
 	if method == http.MethodPost || method == http.MethodPut {
 		req.Body = res
 	}
+
 	req.AddHeader("Accept-Encoding", "gzip")
 
 	resp, err := req.Do()
@@ -124,14 +161,14 @@ func (c *Client) doReq(method, spath string, params, res interface{}) error {
 }
 
 func (c *Client) doRawReq(method, spath string, params interface{}) (string, error) {
-	u := *c.URL
-	u.Path = path.Join(c.URL.Path, spath)
+	u := *c.BaseURL
+	u.Path = path.Join(c.BaseURL.Path, spath)
 
 	req, err := goreq.Request{
 		Method:      method,
 		Uri:         u.String(),
 		QueryString: params,
-		UserAgent:   userAgent,
+		UserAgent:   defaultUserAgent,
 	}.WithHeader("Accept-Encoding", "gzip").Do()
 
 	if err != nil {

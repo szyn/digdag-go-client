@@ -2,12 +2,13 @@ package digdag
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 )
 
-type sessions struct {
+type sessionsWrapper struct {
 	Sessions []Session `json:"sessions"`
 }
 
@@ -39,21 +40,21 @@ type Session struct {
 
 // GetProjectWorkflowSessions to get sessions by projectID and workflow
 func (c *Client) GetProjectWorkflowSessions(projectID, workflowName string) ([]Session, error) {
-	spath := "/api/projects/" + projectID + "/sessions"
+	spath := fmt.Sprintf("/api/projects/%s/sessions", projectID)
 
 	params := url.Values{}
 	params.Set("workflow", workflowName)
 
-	var sessions *sessions
-	err := c.doReq(http.MethodGet, spath, params, &sessions)
+	var sw *sessionsWrapper
+	err := c.doReq(http.MethodGet, spath, params, &sw)
 	if err != nil {
 		return nil, err
 	}
 
 	// if any sessions not found
-	if len(sessions.Sessions) == 0 {
-		return nil, errors.New("session not found")
+	if len(sw.Sessions) == 0 {
+		return nil, errors.New("any sessions not found")
 	}
 
-	return sessions.Sessions, err
+	return sw.Sessions, err
 }
