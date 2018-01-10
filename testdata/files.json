@@ -1,0 +1,20 @@
+{
+	"files": [
+		{
+			"fileName": "+test+test2@5a54eea2007a1200.73100@test.local.log.gz",
+			"fileSize": 125,
+			"taskName": "+test+test2",
+			"fileTime": "2018-01-09T16:32:34Z",
+			"agentId": "73100@test.local",
+			"direct": null
+		},
+		{
+			"fileName": "+test+test@5a54eea130ef7740.73100@test.local.log.gz",
+			"fileSize": 124,
+			"taskName": "+test+test",
+			"fileTime": "2018-01-09T16:32:33Z",
+			"agentId": "73100@test.local",
+			"direct": null
+		}
+	]
+}
