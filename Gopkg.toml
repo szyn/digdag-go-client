@@ -22,13 +22,5 @@
 
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/franela/goreq"
-
-[[constraint]]
-  branch = "master"
-  name = "github.com/hashicorp/errwrap"
-
-[[constraint]]
   name = "github.com/satori/go.uuid"
   version = "1.1.0"
