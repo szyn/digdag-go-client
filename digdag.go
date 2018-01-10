@@ -2,23 +2,20 @@ package digdag
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"path"
 	"runtime"
-
-	"github.com/franela/goreq"
-	"github.com/hashicorp/errwrap"
 )
 
 const (
 	defaultBaseURL = "http://localhost:65432"
-	version        = "0.1" // client-version
+	version        = "0.1.0" // client-version
 )
 
 // Client is the api client for digdag-server
@@ -43,8 +40,8 @@ var defaultUserAgent = fmt.Sprintf("DigdagGoClient/%s (%s)", version, runtime.Ve
 
 // NewClient return new client for digdag
 func NewClient(urlStr string, verbose bool) (*Client, error) {
-
 	if urlStr == "" {
+		// Set default
 		urlStr = defaultBaseURL
 	}
 
@@ -66,24 +63,22 @@ func NewClient(urlStr string, verbose bool) (*Client, error) {
 	return client, err
 }
 
-//
+// NewRequest request to digdag-server
 func (c *Client) NewRequest(method, spath string, ro *RequestOpts) (resp *http.Response, err error) {
+	u := *c.BaseURL
+	u.Path = path.Join(c.BaseURL.Path, spath)
 
 	if ro == nil {
 		ro = new(RequestOpts)
 	}
 
-	u := *c.BaseURL
-	u.Path = path.Join(c.BaseURL.Path, spath)
-
-	// Set query params
+	// Add query params
 	var params = make(url.Values)
 	for k, v := range ro.Params {
 		params.Add(k, v)
 	}
 	u.RawQuery = params.Encode()
 
-	// Create request
 	req, err := http.NewRequest(method, u.String(), ro.Body)
 	if err != nil {
 		return nil, err
@@ -101,6 +96,13 @@ func (c *Client) NewRequest(method, spath string, ro *RequestOpts) (resp *http.R
 		}
 	}
 
+	if c.Verbose {
+		dump, err := httputil.DumpRequestOut(req, true)
+		if err == nil {
+			log.Printf("%s", dump)
+		}
+	}
+
 	client := c.HTTPClient
 	resp, err = client.Do(req)
 	if err != nil {
@@ -114,7 +116,7 @@ func (c *Client) NewRequest(method, spath string, ro *RequestOpts) (resp *http.R
 		}
 	}
 
-	if resp.StatusCode >= 400 {
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 		return resp, fmt.Errorf("Failed to request: %s", resp.Status)
 	}
 
@@ -127,58 +129,11 @@ func decodeBody(resp *http.Response, out interface{}) error {
 	return decoder.Decode(out)
 }
 
-func (c *Client) doReq(method, spath string, params, res interface{}) error {
-	u := *c.BaseURL
-	u.Path = path.Join(c.BaseURL.Path, spath)
-
-	req := goreq.Request{
-		Method:      method,
-		Uri:         u.String(),
-		QueryString: params,
-		ContentType: "application/json",
-		UserAgent:   defaultUserAgent,
-	}
-
-	if c.Verbose {
-		req.ShowDebug = true
-	}
-
-	if method == http.MethodPost || method == http.MethodPut {
-		req.Body = res
-	}
-
-	req.AddHeader("Accept-Encoding", "gzip")
-
-	resp, err := req.Do()
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode >= 400 {
-		return errwrap.Wrapf("Bad request: {{err}}", errors.New(resp.Status))
-	}
-
-	return resp.Body.FromJsonTo(&res)
-}
-
-func (c *Client) doRawReq(method, spath string, params interface{}) (string, error) {
-	u := *c.BaseURL
-	u.Path = path.Join(c.BaseURL.Path, spath)
-
-	req, err := goreq.Request{
-		Method:      method,
-		Uri:         u.String(),
-		QueryString: params,
-		UserAgent:   defaultUserAgent,
-	}.WithHeader("Accept-Encoding", "gzip").Do()
-
+func respToString(resp *http.Response) (string, error) {
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
-
-	if req.StatusCode >= 400 {
-		return "", errwrap.Wrapf("Bad request: {{err)}}", errors.New(req.Status))
-	}
-
-	body, err := req.Body.ToString()
-	return body, err
+	return string(body), nil
 }
