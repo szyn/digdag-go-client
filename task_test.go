@@ -8,16 +8,16 @@ import (
 	"testing"
 )
 
-func TestGetProjects(t *testing.T) {
+func TestGetTasks(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			t.Errorf("Expected GET request, got '%s'", req.Method)
 		}
-		if req.URL.Path != "/api/projects" {
-			t.Error("request URL should be /api/projects but :", req.URL.Path)
+		if req.URL.Path != "/api/attempts/27/tasks" {
+			t.Error("request URL should be /api/attempts/27/tasks but :", req.URL.Path)
 		}
 
-		respJSONFile, err := ioutil.ReadFile(`testdata/projects.json`)
+		respJSONFile, err := ioutil.ReadFile(`testdata/tasks.json`)
 		if err != nil {
 			t.Error("unexpected error: ", err)
 		}
@@ -32,24 +32,16 @@ func TestGetProjects(t *testing.T) {
 		t.Error("err should be nil but: ", err)
 	}
 
-	// GetProjects
-	projects, err := client.GetProjects()
+	result, err := client.GetTaskResult([]string{"27"}, "+test+setup")
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
-	if len(projects) != 1 {
-		t.Fatalf("result should be one: %d", len(projects))
-	}
-	if projects[0].ID != "1" {
-		t.Fatalf("want %v but %v", "1", projects[0].ID)
+	if result.State != "success" {
+		t.Fatalf("want %v but %v", "success", result.State)
 	}
 
-	// GetProject
-	project, err := client.GetProject("test")
-	if err != nil {
-		t.Error("err should be nil but: ", err)
-	}
-	if project.ID != "1" {
-		t.Fatalf("want %v but %v", "1", project.ID)
+	result, err = client.GetTaskResult([]string{"27"}, "+test+failed")
+	if err == nil {
+		t.Fatalf("should be fail: %v", err)
 	}
 }

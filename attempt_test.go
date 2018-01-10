@@ -27,33 +27,33 @@ func TestGetAttempts(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "test", "test", "2017-06-24", false)
+	client, err := NewClient(ts.URL, false)
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
 
-	attempts, err := client.GetAttempts(true)
+	attempts, err := client.GetAttempts(nil, true)
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
 	if len(attempts) != 3 {
-		t.Fatalf("result should be two: %d", len(attempts))
+		t.Fatalf("result should be three: %d", len(attempts))
 	}
 	if attempts[0].ID != "27" {
 		t.Fatalf("want %v but %v", "27", attempts[0].ID)
 	}
 }
 
-func TestGetTasks(t *testing.T) {
+func TestGetAttemptIDs(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			t.Errorf("Expected GET request, got '%s'", req.Method)
 		}
-		if req.URL.Path != "/api/attempts/27/tasks" {
-			t.Error("request URL should be /api/attempts/27/tasks but :", req.URL.Path)
+		if req.URL.Path != "/api/attempts" {
+			t.Error("request URL should be /api/attempts but :", req.URL.Path)
 		}
 
-		respJSONFile, err := ioutil.ReadFile(`testdata/tasks.json`)
+		respJSONFile, err := ioutil.ReadFile(`testdata/attempts.json`)
 		if err != nil {
 			t.Error("unexpected error: ", err)
 		}
@@ -63,22 +63,20 @@ func TestGetTasks(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "test", "test", "2017-06-24", false)
+	client, err := NewClient(ts.URL, false)
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
 
-	result, err := client.GetTaskResult([]string{"27"}, "+test+setup")
+	IDs, err := client.GetAttemptIDs("test", "test", "2017-06-24T00:00:00+00:00")
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
-	if result.State != "success" {
-		t.Fatalf("want %v but %v", "success", result.State)
+	if len(IDs) != 1 {
+		t.Fatalf("result should be one: %d", len(IDs))
 	}
-
-	result, err = client.GetTaskResult([]string{"27"}, "+test+failed")
-	if err == nil {
-		t.Fatalf("should be fail: %v", err)
+	if IDs[0] != "27" {
+		t.Fatalf("want %v but %v", "27", IDs[0])
 	}
 }
 
@@ -101,12 +99,12 @@ func TestCreateNewAttempt(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	client, err := NewClient(ts.URL, "test", "test", "2017-06-24", false)
+	client, err := NewClient(ts.URL, false)
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
 
-	result, done, err := client.CreateNewAttempt("2", "2017-06-24", false)
+	result, done, err := client.CreateNewAttempt("2", "2017-06-24", nil, false)
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
@@ -114,7 +112,17 @@ func TestCreateNewAttempt(t *testing.T) {
 		t.Fatalf("want %v but %v", true, result.Done)
 	}
 
-	result, done, err = client.CreateNewAttempt("2", "2017-06-24", true)
+	result, done, err = client.CreateNewAttempt("2", "2017-06-24", nil, true)
+	if err != nil {
+		t.Error("err should be nil but: ", err)
+	}
+	if done != false {
+		t.Fatalf("want %v but %v", true, result.Done)
+	}
+
+	// Add params
+	params := []string{"key1=val1", "key2=val2"}
+	result, done, err = client.CreateNewAttempt("2", "2017-06-24", params, true)
 	if err != nil {
 		t.Error("err should be nil but: ", err)
 	}
