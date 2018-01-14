@@ -12,19 +12,19 @@ type tasksWrapper struct {
 
 // Task is struct for attempts task result
 type Task struct {
-	ID           string        `json:"id"`
-	FullName     string        `json:"fullName"`
-	ParentID     interface{}   `json:"parentId"`
-	Config       interface{}   `json:"config"`
-	Upstreams    []interface{} `json:"upstreams"`
-	State        string        `json:"state"`
-	ExportParams interface{}   `json:"exportParams"`
-	StoreParams  interface{}   `json:"storeParams"`
-	StateParams  interface{}   `json:"stateParams"`
-	UpdatedAt    string        `json:"updatedAt"`
-	RetryAt      interface{}   `json:"retryAt"`
-	StartedAt    interface{}   `json:"startedAt"`
-	IsGroup      bool          `json:"isGroup"`
+	ID           string                 `json:"id"`
+	FullName     string                 `json:"fullName"`
+	ParentID     interface{}            `json:"parentId"`
+	Config       map[string]interface{} `json:"config"`
+	Upstreams    []string               `json:"upstreams"`
+	State        string                 `json:"state"`
+	ExportParams map[string]interface{} `json:"exportParams"`
+	StoreParams  map[string]string      `json:"storeParams"`
+	StateParams  map[string]string      `json:"stateParams"`
+	UpdatedAt    string                 `json:"updatedAt"`
+	RetryAt      interface{}            `json:"retryAt"`
+	StartedAt    interface{}            `json:"startedAt"`
+	IsGroup      bool                   `json:"isGroup"`
 }
 
 // GetTasks to get tasks list

@@ -85,7 +85,10 @@ func (c *Client) NewRequest(method, spath string, ro *RequestOpts) (resp *http.R
 	}
 
 	// Set headers
-	req.Header.Set("Content-Type", "application/json")
+	if ro.Body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Encoding", "gzip")
 	req.Header.Set("User-Agent", c.UserAgent)
 

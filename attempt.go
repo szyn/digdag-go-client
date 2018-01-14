@@ -27,16 +27,16 @@ type Attempt struct {
 		Name string `json:"name"`
 		ID   string `json:"id"`
 	} `json:"workflow"`
-	SessionID        string      `json:"sessionId"`
-	SessionUUID      string      `json:"sessionUuid"`
-	SessionTime      string      `json:"sessionTime"`
-	RetryAttemptName interface{} `json:"retryAttemptName"`
-	Done             bool        `json:"done"`
-	Success          bool        `json:"success"`
-	CancelRequested  bool        `json:"cancelRequested"`
-	Params           interface{} `json:"params"`
-	CreatedAt        string      `json:"createdAt"`
-	FinishedAt       string      `json:"finishedAt"`
+	SessionID        string            `json:"sessionId"`
+	SessionUUID      string            `json:"sessionUuid"`
+	SessionTime      string            `json:"sessionTime"` // FIXME fix type from string to time.Time
+	RetryAttemptName interface{}       `json:"retryAttemptName"`
+	Done             bool              `json:"done"`
+	Success          bool              `json:"success"`
+	CancelRequested  bool              `json:"cancelRequested"`
+	Params           map[string]string `json:"params"`
+	CreatedAt        string            `json:"createdAt"`
+	FinishedAt       string            `json:"finishedAt"`
 }
 
 // CreateAttempt is struct for create a new attempt
@@ -50,13 +50,12 @@ type CreateAttempt struct {
 
 // NewCreateAttempt to create a new CreateAttempt struct
 func NewCreateAttempt(workflowID, sessionTime, retryAttemptName string) *CreateAttempt {
-	ca := &CreateAttempt{
+	return &CreateAttempt{
 		WorkflowID:       workflowID,
 		SessionTime:      sessionTime,
 		RetryAttemptName: retryAttemptName,
-		Params:           map[string]string{}, // FIXME Set the optional params
+		Params:           map[string]string{},
 	}
-	return ca
 }
 
 // GetAttempts get attempts response

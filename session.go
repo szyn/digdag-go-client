@@ -1,7 +1,6 @@
 package digdag
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,11 +12,8 @@ type sessionsWrapper struct {
 
 // Session is the struct for digdag session
 type Session struct {
-	ID      string `json:"id"`
-	Project struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	} `json:"project"`
+	ID       string `json:"id"`
+	Project  `json:"project"`
 	Workflow struct {
 		Name string `json:"name"`
 		ID   string `json:"id"`
@@ -25,16 +21,15 @@ type Session struct {
 	SessionUUID string    `json:"sessionUuid"`
 	SessionTime time.Time `json:"sessionTime"`
 	LastAttempt struct {
-		ID               string      `json:"id"`
-		RetryAttemptName interface{} `json:"retryAttemptName"`
-		Done             bool        `json:"done"`
-		Success          bool        `json:"success"`
-		CancelRequested  bool        `json:"cancelRequested"`
-		Params           struct {
-		} `json:"params"`
-		CreatedAt  time.Time `json:"createdAt"`
-		FinishedAt time.Time `json:"finishedAt"`
-	}
+		ID               string            `json:"id"`
+		RetryAttemptName interface{}       `json:"retryAttemptName"`
+		Done             bool              `json:"done"`
+		Success          bool              `json:"success"`
+		CancelRequested  bool              `json:"cancelRequested"`
+		Params           map[string]string `json:"params"`
+		CreatedAt        time.Time         `json:"createdAt"`
+		FinishedAt       time.Time         `json:"finishedAt"`
+	} `json:"lastAttempt"`
 }
 
 // GetSessions to get sessions
@@ -76,8 +71,8 @@ func (c *Client) GetProjectWorkflowSessions(projectID, workflowName string) ([]*
 
 	// if any sessions not found
 	if len(sw.Sessions) == 0 {
-		return nil, errors.New("any sessions not found")
+		return nil, fmt.Errorf("any sessions not found at `%s` workflow", workflowName)
 	}
 
-	return sw.Sessions, err
+	return sw.Sessions, nil
 }
