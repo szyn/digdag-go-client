@@ -1,11 +1,23 @@
 package digdag
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"reflect"
 	"testing"
 )
+
+func newTestClient(urlStr string) *Client {
+	client, _ := NewClient(urlStr, true)
+	client.CustomHeaders.Set("X-Custom-Header", "hoge")
+	return client
+}
+
+func readFile(filename string) string {
+	content, _ := ioutil.ReadFile(filename)
+	return string(content)
+}
 
 func TestNewClient(t *testing.T) {
 	parsedURL, _ := url.Parse(defaultBaseURL)
@@ -20,8 +32,10 @@ func TestNewClient(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Test NewClient",
-			args: args{"", false},
+			args: args{
+				urlStr:  "",
+				verbose: false,
+			},
 			want: &Client{
 				BaseURL:       parsedURL,
 				HTTPClient:    &http.Client{},
@@ -29,7 +43,6 @@ func TestNewClient(t *testing.T) {
 				CustomHeaders: http.Header{},
 				Verbose:       false,
 			},
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
