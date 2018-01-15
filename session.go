@@ -1,23 +1,19 @@
 package digdag
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
-	"net/url"
 	"time"
 )
 
-type sessions struct {
-	Sessions []Session `json:"sessions"`
+type sessionsWrapper struct {
+	Sessions []*Session `json:"sessions"`
 }
 
 // Session is the struct for digdag session
 type Session struct {
-	ID      string `json:"id"`
-	Project struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	} `json:"project"`
+	ID       string `json:"id"`
+	Project  `json:"project"`
 	Workflow struct {
 		Name string `json:"name"`
 		ID   string `json:"id"`
@@ -25,35 +21,58 @@ type Session struct {
 	SessionUUID string    `json:"sessionUuid"`
 	SessionTime time.Time `json:"sessionTime"`
 	LastAttempt struct {
-		ID               string      `json:"id"`
-		RetryAttemptName interface{} `json:"retryAttemptName"`
-		Done             bool        `json:"done"`
-		Success          bool        `json:"success"`
-		CancelRequested  bool        `json:"cancelRequested"`
-		Params           struct {
-		} `json:"params"`
-		CreatedAt  time.Time `json:"createdAt"`
-		FinishedAt time.Time `json:"finishedAt"`
-	}
+		ID               string            `json:"id"`
+		RetryAttemptName interface{}       `json:"retryAttemptName"`
+		Done             bool              `json:"done"`
+		Success          bool              `json:"success"`
+		CancelRequested  bool              `json:"cancelRequested"`
+		Params           map[string]string `json:"params"`
+		CreatedAt        time.Time         `json:"createdAt"`
+		FinishedAt       time.Time         `json:"finishedAt"`
+	} `json:"lastAttempt"`
 }
 
-// GetProjectWorkflowSessions to get sessions by projectID and workflow
-func (c *Client) GetProjectWorkflowSessions(projectID, workflowName string) ([]Session, error) {
-	spath := "/api/projects/" + projectID + "/sessions"
+// GetSessions to get sessions
+func (c *Client) GetSessions() ([]*Session, error) {
+	spath := "/api/sessions"
 
-	params := url.Values{}
-	params.Set("workflow", workflowName)
-
-	var sessions *sessions
-	err := c.doReq(http.MethodGet, spath, params, &sessions)
+	var sw *sessionsWrapper
+	resp, err := c.NewRequest(http.MethodGet, spath, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// if any sessions not found
-	if len(sessions.Sessions) == 0 {
-		return nil, errors.New("session not found")
+	if err := decodeBody(resp, &sw); err != nil {
+		return nil, err
 	}
 
-	return sessions.Sessions, err
+	return sw.Sessions, nil
+}
+
+// GetProjectWorkflowSessions to get sessions by projectID and workflow
+func (c *Client) GetProjectWorkflowSessions(projectID, workflowName string) ([]*Session, error) {
+	spath := fmt.Sprintf("/api/projects/%s/sessions", projectID)
+
+	var sw *sessionsWrapper
+	ro := &RequestOpts{
+		Params: map[string]string{
+			"workflow": workflowName,
+		},
+	}
+
+	resp, err := c.NewRequest(http.MethodGet, spath, ro)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := decodeBody(resp, &sw); err != nil {
+		return nil, err
+	}
+
+	// if any sessions not found
+	if len(sw.Sessions) == 0 {
+		return nil, fmt.Errorf("any sessions not found at `%s` workflow", workflowName)
+	}
+
+	return sw.Sessions, nil
 }

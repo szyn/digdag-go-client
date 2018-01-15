@@ -1,41 +1,64 @@
 package digdag
 
 import (
+	"fmt"
 	"net/http"
-	"net/url"
-	"errors"
 )
 
-type workflows struct {
-	Workflows []Workflow `json:"workflows"`
+type workflowsWrapper struct {
+	Workflows []*Workflow `json:"workflows"`
 }
 
 // Workflow is struct for digdag workflow
 type Workflow struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Project `json:"project"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Project  `json:"project"`
+	Revision string `json:"revision"`
+	Timezone string `json:"timezone"`
 }
 
-// GetWorkflowID to get workflowID from projectID
-func (c *Client) GetWorkflowID(projectID string) (workflowID string, err error) {
-	spath := "/api/projects/" + projectID + "/workflows"
+// GetWorkflows to get projects
+func (c *Client) GetWorkflows() ([]*Workflow, error) {
+	spath := "/api/workflows"
 
-	params := url.Values{}
-	params.Set("name", c.WorkflowName)
-
-	var workflows *workflows
-	err = c.doReq(http.MethodGet, spath, params, &workflows)
+	var ww *workflowsWrapper
+	resp, err := c.NewRequest(http.MethodGet, spath, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// if workflow not found
-	if len(workflows.Workflows) == 0 {
-		return "", errors.New("workflow not found `" + c.WorkflowName + "`")
+	if err := decodeBody(resp, &ww); err != nil {
+		return nil, err
 	}
 
-	workflowID = workflows.Workflows[0].ID
+	return ww.Workflows, nil
+}
 
-	return workflowID, err
+// GetWorkflow to get workflow by project ID and workflow name
+func (c *Client) GetWorkflow(projectID, workflowName string) (*Workflow, error) {
+	spath := fmt.Sprintf("/api/projects/%s/workflows", projectID)
+
+	var ww *workflowsWrapper
+	ro := &RequestOpts{
+		Params: map[string]string{
+			"name": workflowName,
+		},
+	}
+
+	resp, err := c.NewRequest(http.MethodGet, spath, ro)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := decodeBody(resp, &ww); err != nil {
+		return nil, err
+	}
+
+	// if an empty array (= workflow not found)
+	if len(ww.Workflows) == 0 {
+		return nil, fmt.Errorf("workflow `%s` not found", workflowName)
+	}
+
+	return ww.Workflows[0], nil
 }

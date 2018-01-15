@@ -1,16 +1,18 @@
 package digdag
 
 import (
-	"errors"
-	"strconv"
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
-	"net/url"
-	"github.com/hashicorp/errwrap"
+	"strconv"
+	"strings"
+
 	uuid "github.com/satori/go.uuid"
 )
 
-type attempts struct {
-	Attempts []Attempt `json:"attempts"`
+type attemptsWrapper struct {
+	Attempts []*Attempt `json:"attempts"`
 }
 
 // Attempt is the struct for digdag attempt
@@ -25,87 +27,81 @@ type Attempt struct {
 		Name string `json:"name"`
 		ID   string `json:"id"`
 	} `json:"workflow"`
-	SessionID        string      `json:"sessionId"`
-	SessionUUID      string      `json:"sessionUuid"`
-	SessionTime      string      `json:"sessionTime"`
-	RetryAttemptName interface{} `json:"retryAttemptName"`
-	Done             bool        `json:"done"`
-	Success          bool        `json:"success"`
-	CancelRequested  bool        `json:"cancelRequested"`
-	Params           interface{} `json:"params"`
-	CreatedAt        string      `json:"createdAt"`
-	FinishedAt       string      `json:"finishedAt"`
+	SessionID        string            `json:"sessionId"`
+	SessionUUID      string            `json:"sessionUuid"`
+	SessionTime      string            `json:"sessionTime"` // FIXME fix type from string to time.Time
+	RetryAttemptName interface{}       `json:"retryAttemptName"`
+	Done             bool              `json:"done"`
+	Success          bool              `json:"success"`
+	CancelRequested  bool              `json:"cancelRequested"`
+	Params           map[string]string `json:"params"`
+	CreatedAt        string            `json:"createdAt"`
+	FinishedAt       string            `json:"finishedAt"`
 }
 
 // CreateAttempt is struct for create a new attempt
 type CreateAttempt struct {
 	Attempt
-	WorkflowID       string                 `json:"workflowId"`
-	SessionTime      string                 `json:"sessionTime"`
-	RetryAttemptName string                 `json:"retryAttemptName,omitempty"`
-	Params           map[string]interface{} `json:"params"` // TODO: set the optional params.
-}
-
-type tasks struct {
-	Tasks []Task `json:"tasks"`
-}
-
-// Task is struct for attempts task result
-type Task struct {
-	ID           string        `json:"id"`
-	FullName     string        `json:"fullName"`
-	ParentID     interface{}   `json:"parentId"`
-	Config       interface{}   `json:"config"`
-	Upstreams    []interface{} `json:"upstreams"`
-	State        string        `json:"state"`
-	ExportParams interface{}   `json:"exportParams"`
-	StoreParams  interface{}   `json:"storeParams"`
-	StateParams  interface{}   `json:"stateParams"`
-	UpdatedAt    string        `json:"updatedAt"`
-	RetryAt      interface{}   `json:"retryAt"`
-	StartedAt    interface{}   `json:"startedAt"`
-	IsGroup      bool          `json:"isGroup"`
+	WorkflowID       string            `json:"workflowId"`
+	SessionTime      string            `json:"sessionTime"`
+	RetryAttemptName string            `json:"retryAttemptName,omitempty"`
+	Params           map[string]string `json:"params"`
 }
 
 // NewCreateAttempt to create a new CreateAttempt struct
 func NewCreateAttempt(workflowID, sessionTime, retryAttemptName string) *CreateAttempt {
-	ca := new(CreateAttempt)
-	ca.WorkflowID = workflowID
-	ca.SessionTime = sessionTime
-	ca.RetryAttemptName = retryAttemptName
-	// TODO: set the optional params.
-	ca.Params = map[string]interface{}{}
-
-	return ca
+	return &CreateAttempt{
+		WorkflowID:       workflowID,
+		SessionTime:      sessionTime,
+		RetryAttemptName: retryAttemptName,
+		Params:           map[string]string{},
+	}
 }
 
 // GetAttempts get attempts response
-func (c *Client) GetAttempts(includeRetried bool) ([]Attempt, error) {
+func (c *Client) GetAttempts(attempt *Attempt, includeRetried bool) ([]*Attempt, error) {
 	spath := "/api/attempts"
 
-	params := url.Values{}
-	params.Set("project", c.ProjectName)
-	params.Set("workflow", c.WorkflowName)
-	params.Set("include_retried", strconv.FormatBool(includeRetried))
+	if attempt == nil {
+		attempt = new(Attempt)
+	}
 
-	var attempts *attempts
-	err := c.doReq(http.MethodGet, spath, params, &attempts)
+	project := attempt.Project.Name
+	workflow := attempt.Workflow.Name
+
+	var aw *attemptsWrapper
+	ro := &RequestOpts{
+		Params: map[string]string{
+			"project":         project,
+			"workflow":        workflow,
+			"include_retried": strconv.FormatBool(includeRetried),
+		},
+	}
+
+	resp, err := c.NewRequest(http.MethodGet, spath, ro)
 	if err != nil {
 		return nil, err
 	}
 
-	// If any attempts not found
-	if len(attempts.Attempts) == 0 {
-		err := errors.New("attempts does not exist at `" + c.WorkflowName + "` workflow")
+	if err := decodeBody(resp, &aw); err != nil {
 		return nil, err
 	}
 
-	return attempts.Attempts, err
+	// If any attempts not found
+	if len(aw.Attempts) == 0 {
+		return nil, fmt.Errorf("attempts does not exist. project=%s workflow=%s", project, workflow)
+	}
+
+	return aw.Attempts, nil
 }
 
 // GetAttemptIDs to get attemptID from sessionTime
-func (c *Client) GetAttemptIDs() (attemptIDs []string, err error) {
-	attempts, err := c.GetAttempts(true)
+func (c *Client) GetAttemptIDs(projectName, workflowName, targetSession string) (attemptIDs []string, err error) {
+	params := new(Attempt)
+	params.Project.Name = projectName
+	params.Workflow.Name = workflowName
+
+	attempts, err := c.GetAttempts(params, true)
 	if err != nil {
 		return nil, err
 	}
@@ -113,56 +109,34 @@ func (c *Client) GetAttemptIDs() (attemptIDs []string, err error) {
 	for k := range attempts {
 		sessionTime := attempts[k].SessionTime
 
-		if sessionTime == c.SessionTime {
+		if sessionTime == targetSession {
 			attemptIDs = append(attemptIDs, attempts[k].ID)
 		}
 	}
 
-	// If any sessionTime not found
-	return attemptIDs, err
-}
-
-// GetTasks to get tasks list
-func (c *Client) GetTasks(attemptID string) ([]Task, error) {
-	spath := "/api/attempts/" + attemptID + "/tasks"
-
-	var tasks *tasks
-	err := c.doReq(http.MethodGet, spath, nil, &tasks)
-	if err != nil {
-		return nil, err
+	// If any attemptID not found
+	if len(attemptIDs) == 0 {
+		return []string{}, fmt.Errorf("attempts does not exist. project=%s workflow=%s sessionTime=%s", projectName, workflowName, targetSession)
 	}
 
-	return tasks.Tasks, err
-}
-
-// GetTaskResult to get task result
-func (c *Client) GetTaskResult(attemptIDs []string, taskName string) (*Task, error) {
-
-	for _, attemptID := range attemptIDs {
-		tasks, err := c.GetTasks(attemptID)
-
-		for k := range tasks {
-			if tasks[k].FullName == taskName {
-				state := tasks[k].State
-				if state == "success" {
-					return &tasks[k], nil
-				}
-
-				err = errors.New("task `" + taskName + "` state is " + state)
-				return nil, err
-			}
-		}
-	}
-
-	err := errors.New("task `" + taskName + "` result not found")
-	return nil, err
+	return attemptIDs, nil
 }
 
 // CreateNewAttempt to create a new attempt
-func (c *Client) CreateNewAttempt(workflowID, date string, retry bool) (attempt *CreateAttempt, done bool, err error) {
+func (c *Client) CreateNewAttempt(workflowID, sessionTime string, params []string, retry bool) (attempt *Attempt, done bool, err error) {
 	spath := "/api/attempts"
 
-	ca := NewCreateAttempt(workflowID, c.SessionTime, "")
+	ca := NewCreateAttempt(workflowID, sessionTime, "")
+
+	// Set params
+	for _, v := range params {
+		if strings.Contains(v, "=") {
+			result := strings.Split(v, "=")
+			key := result[0]
+			val := result[1]
+			ca.Params[key] = val
+		}
+	}
 
 	// Retry workflow
 	if retry == true {
@@ -170,21 +144,34 @@ func (c *Client) CreateNewAttempt(workflowID, date string, retry bool) (attempt 
 		generatedUUID := uuid.NewV4()
 		textID, err := generatedUUID.MarshalText()
 		if err != nil {
-			return nil, done, err
+			return nil, false, err
 		}
 		ca.RetryAttemptName = string(textID)
 	}
 
 	// Create new attempt
-	err = c.doReq(http.MethodPut, spath, nil, &ca)
+	body, err := json.Marshal(ca)
 	if err != nil {
-		// if already session exist
-		if errwrap.Contains(err, "409 Conflict") {
-			done := true
-			return nil, done, err
-		}
-		return nil, done, err
+		return nil, false, err
 	}
 
-	return ca, done, err
+	ro := &RequestOpts{
+		Body: bytes.NewBuffer(body),
+	}
+
+	resp, err := c.NewRequest(http.MethodPut, spath, ro)
+	if err != nil {
+		// if already session exist
+		if resp.StatusCode == http.StatusConflict {
+			return nil, true, nil
+		}
+
+		return nil, false, err
+	}
+
+	if err := decodeBody(resp, &attempt); err != nil {
+		return nil, false, err
+	}
+
+	return attempt, done, err
 }

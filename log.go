@@ -2,6 +2,7 @@ package digdag
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"bytes"
@@ -10,10 +11,10 @@ import (
 )
 
 type logFiles struct {
-	Files []LogFile `json:"files"`
+	Files []*LogFile `json:"files"`
 }
 
-// LogFile is struct for digdag task log files
+// LogFile is struct for digdag task log file
 type LogFile struct {
 	FileName string      `json:"fileName"`
 	FileSize int         `json:"fileSize"`
@@ -24,12 +25,17 @@ type LogFile struct {
 }
 
 // GetLogFiles to get logfile list
-func (c *Client) GetLogFiles(attemptID string) ([]LogFile, error) {
-	spath := "/api/logs/" + attemptID + "/files"
+func (c *Client) GetLogFiles(attemptID string) ([]*LogFile, error) {
+	spath := fmt.Sprintf("/api/logs/%s/files", attemptID)
 
 	var logFiles *logFiles
-	err := c.doReq(http.MethodGet, spath, nil, &logFiles)
+	resp, err := c.NewRequest(http.MethodGet, spath, nil)
+
 	if err != nil {
+		return nil, err
+	}
+
+	if err := decodeBody(resp, &logFiles); err != nil {
 		return nil, err
 	}
 
@@ -50,7 +56,7 @@ func (c *Client) GetLogFileResult(attemptID, taskName string) (*LogFile, error) 
 
 	for l := range logFiles {
 		if logFiles[l].TaskName == taskName {
-			return &logFiles[l], nil
+			return logFiles[l], nil
 		}
 		err = errors.New("task log `" + taskName + "` not found")
 	}
@@ -60,9 +66,11 @@ func (c *Client) GetLogFileResult(attemptID, taskName string) (*LogFile, error) 
 
 // GetLogText to get logtext
 func (c *Client) GetLogText(attemptID, fileName string) (string, error) {
-	spath := "/api/logs/" + attemptID + "/files/" + fileName
+	spath := fmt.Sprintf("/api/logs/%s/files/%s", attemptID, fileName)
 
-	gztext, err := c.doRawReq(http.MethodGet, spath, nil)
+	resp, err := c.NewRequest(http.MethodGet, spath, nil)
+
+	gztext, err := respToString(resp)
 	if err != nil {
 		return "", err
 	}
@@ -72,6 +80,7 @@ func (c *Client) GetLogText(attemptID, fileName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	data, err := ioutil.ReadAll(gr)
 	return string(data), err
 }
