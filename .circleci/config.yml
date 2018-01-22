@@ -7,11 +7,13 @@ jobs:
     working_directory: /go/src/github.com/szyn/digdag-go-client
     steps:
       - checkout
-
       - run: go get -u github.com/golang/dep/cmd/dep
       - run: go get -u github.com/golang/lint/golint
       - run: dep ensure
       - run: golint $(go list ./... | grep -v /vendor/)
       - run: go vet ./...
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
-      - run: bash <(curl -s https://codecov.io/bash)
+      - run: go get github.com/axw/gocov/...
+      - run: go get github.com/AlekSi/gocov-xml
+      - run: gocov convert coverage.txt | gocov-xml > coverage.xml
+      - run: bash <(curl -s https://codecov.io/bash) -f coverage.xml
