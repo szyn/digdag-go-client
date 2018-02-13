@@ -19,8 +19,8 @@ type Task struct {
 	Upstreams    []string               `json:"upstreams"`
 	State        string                 `json:"state"`
 	ExportParams map[string]interface{} `json:"exportParams"`
-	StoreParams  map[string]string      `json:"storeParams"`
-	StateParams  map[string]string      `json:"stateParams"`
+	StoreParams  map[string]interface{} `json:"storeParams"`
+	StateParams  map[string]interface{} `json:"stateParams"`
 	UpdatedAt    string                 `json:"updatedAt"`
 	RetryAt      interface{}            `json:"retryAt"`
 	StartedAt    interface{}            `json:"startedAt"`
