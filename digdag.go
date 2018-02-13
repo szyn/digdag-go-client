@@ -15,7 +15,7 @@ import (
 
 const (
 	defaultBaseURL = "http://localhost:65432"
-	version        = "v0.1.0" // client-version
+	version        = "v0.1.1" // client-version
 )
 
 // Client is the api client for digdag-server
