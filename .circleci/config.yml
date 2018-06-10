@@ -2,15 +2,14 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.9
-
+      - image: circleci/golang:1.10.3
     working_directory: /go/src/github.com/szyn/digdag-go-client
     steps:
       - checkout
       - run: go get -u github.com/golang/dep/cmd/dep
       - run: go get -u github.com/golang/lint/golint
       - run: dep ensure
-      - run: golint $(go list ./... | grep -v /vendor/)
+      - run: golint $(go list ./...)
       - run: go vet ./...
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
       - run: go get github.com/axw/gocov/...
