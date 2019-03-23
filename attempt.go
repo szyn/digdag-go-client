@@ -41,7 +41,6 @@ type Attempt struct {
 
 // CreateAttempt is struct for create a new attempt
 type CreateAttempt struct {
-	Attempt
 	WorkflowID       string            `json:"workflowId"`
 	SessionTime      string            `json:"sessionTime"`
 	RetryAttemptName string            `json:"retryAttemptName,omitempty"`
