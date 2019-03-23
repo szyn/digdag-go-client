@@ -8,7 +8,7 @@ jobs:
     working_directory: /go/src/github.com/szyn/digdag-go-client
     steps:
       - checkout
-      - run: go get -u github.com/golang/lint/golint
+      - run: go get github.com/golang/lint/golint
       - run: golint $(go list ./...)
       - run: go vet ./...
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
