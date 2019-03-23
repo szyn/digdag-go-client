@@ -2,13 +2,13 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.10.3
+      - image: circleci/golang:1.12
+    environment:
+      GO111MODULE: "on"
     working_directory: /go/src/github.com/szyn/digdag-go-client
     steps:
       - checkout
-      - run: go get -u github.com/golang/dep/cmd/dep
       - run: go get -u github.com/golang/lint/golint
-      - run: dep ensure
       - run: golint $(go list ./...)
       - run: go vet ./...
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
