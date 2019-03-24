@@ -253,7 +253,7 @@ func TestClient_GetAttemptIDs(t *testing.T) {
 						"finishedAt": "2017-06-24T06:45:31Z"
 					}
 				]
-			}			
+			}
 			`,
 			wantAttemptIDs: []string{"27"},
 		},
@@ -289,7 +289,7 @@ func TestClient_GetAttemptIDs(t *testing.T) {
 						"finishedAt": "2017-06-24T06:45:31Z"
 					}
 				]
-			}			
+			}
 			`,
 			wantAttemptIDs: []string{},
 			wantErr:        true,
@@ -401,7 +401,7 @@ func TestClient_CreateNewAttempt(t *testing.T) {
 				"params": {
 					"key": "value"
 				}
-			}	
+			}
 			`,
 			wantAttempt: &Attempt{
 				ID:    "27",

@@ -30,7 +30,7 @@ type Attempt struct {
 	SessionID        string            `json:"sessionId"`
 	SessionUUID      string            `json:"sessionUuid"`
 	SessionTime      string            `json:"sessionTime"` // FIXME fix type from string to time.Time
-	RetryAttemptName interface{}       `json:"retryAttemptName"`
+	RetryAttemptName interface{}       `json:"retryAttemptName,omitempty"`
 	Done             bool              `json:"done"`
 	Success          bool              `json:"success"`
 	CancelRequested  bool              `json:"cancelRequested"`
@@ -41,7 +41,6 @@ type Attempt struct {
 
 // CreateAttempt is struct for create a new attempt
 type CreateAttempt struct {
-	Attempt
 	WorkflowID       string            `json:"workflowId"`
 	SessionTime      string            `json:"sessionTime"`
 	RetryAttemptName string            `json:"retryAttemptName,omitempty"`
