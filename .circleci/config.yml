@@ -11,8 +11,5 @@ jobs:
       - run: go get golang.org/x/lint/golint
       - run: golint $(go list ./...)
       - run: go vet ./...
-      - run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
-      - run: go get github.com/axw/gocov/gocov
-      - run: go get github.com/AlekSi/gocov-xml
-      - run: gocov convert coverage.txt | gocov-xml > coverage.xml
-      - run: bash <(curl -s https://codecov.io/bash) -f coverage.xml
+      - run: go test -race -coverprofile=coverage.txt -covermode=atomic
+      - run: bash <(curl -s https://codecov.io/bash)
