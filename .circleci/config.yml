@@ -2,10 +2,10 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.12
+      - image: cimg/go:1.17.2
     environment:
       GO111MODULE: "on"
-    working_directory: /go/src/github.com/szyn/digdag-go-client
+    working_directory: ~/go/src/github.com/szyn/digdag-go-client
     steps:
       - checkout
       - run: go get golang.org/x/lint/golint
