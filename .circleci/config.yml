@@ -1,11 +1,11 @@
 version: 2
 jobs:
-  build:
+  test:
     docker:
-      - image: circleci/golang:1.12
+      - image: cimg/go:1.17.2
     environment:
       GO111MODULE: "on"
-    working_directory: /go/src/github.com/szyn/digdag-go-client
+    working_directory: ~/go/src/github.com/szyn/digdag-go-client
     steps:
       - checkout
       - run: go get golang.org/x/lint/golint
@@ -13,3 +13,10 @@ jobs:
       - run: go vet ./...
       - run: go test -race -coverprofile=coverage.txt -covermode=atomic
       - run: bash <(curl -s https://codecov.io/bash)
+
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
